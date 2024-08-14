@@ -47,8 +47,8 @@ Squelch::Squelch(void) {
     pre_vs_post_factor_ = 0.9f;
 
     open_delay_ = 197;
-    close_delay_ = 197;
-    low_signal_abort_ = 88;
+    close_delay_ = 6304; // default 197.
+    low_signal_abort_ = 88; //XXX: Disabled 20240811 JBB
 
     next_state_ = CLOSED;
     current_state_ = CLOSED;
@@ -232,17 +232,18 @@ void Squelch::process_raw_sample(const float& sample) {
 
     // Override squelch and close if there are repeated samples under the squelch level
     // NOTE: this can cause squelch to close, but it may immediately be re-opened if the signal level still hasn't fallen after the delays
-    if (current_state_ != CLOSED && current_state_ != LOW_SIGNAL_ABORT) {
-        if (sample >= squelch_level()) {
-            low_signal_count_ = 0;
-        } else {
-            low_signal_count_++;
-            if (low_signal_count_ >= low_signal_abort_) {
-                debug_print("Low signal abort at %zu: low signal count %d\n", sample_count_, low_signal_count_);
-                set_state(LOW_SIGNAL_ABORT);
-            }
-        }
-    }
+    //XXX: Disabled 20240811 JBB
+//    if (current_state_ != CLOSED && current_state_ != LOW_SIGNAL_ABORT) {
+//        if (sample >= squelch_level()) {
+//            low_signal_count_ = 0;
+//        } else {
+//            low_signal_count_++;
+//            if (low_signal_count_ >= low_signal_abort_) {
+//                debug_print("Low signal abort at %zu: low signal count %d\n", sample_count_, low_signal_count_);
+//                set_state(LOW_SIGNAL_ABORT);
+//            }
+//        }
+//    }
 }
 
 void Squelch::process_filtered_sample(const float& sample) {
@@ -269,7 +270,8 @@ void Squelch::process_filtered_sample(const float& sample) {
     update_moving_avg(post_filter_, sample);
 
     // Always comparing the post-filter average to the buffered pre-filtered value
-    if (post_filter_.capped_ < buffer_[buffer_tail_]) {
+    //XXX: ...except if flapping. 20241108 JBB
+    if (post_filter_.capped_ < buffer_[buffer_tail_] && ! (currently_flapping())) {
         debug_print("Closing at %zu: signal level post filter (%f < %f)\n", sample_count_, post_filter_.capped_, squelch_level());
         set_state(CLOSED);
     }
